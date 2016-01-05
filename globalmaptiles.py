@@ -295,9 +295,9 @@ class GlobalMercator(object):
             mask = 1 << (i-1)
             if (tx & mask) != 0:
                 digit += 1
-                if (ty & mask) != 0:
-                    digit += 2
-                    quadKey += str(digit)
+            if (ty & mask) != 0:
+                digit += 2
+            quadKey += str(digit)
         return quadKey
    
 
