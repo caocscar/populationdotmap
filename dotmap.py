@@ -45,10 +45,9 @@ def generate_tile(quadkey, df):
     yscale = width/(tile_tt - tile_bb)
     scale = min(xscale, yscale)
      
-    px = scale*(df['x']/A - tile_ll)
-    py = -scale*(df['y']/A - tile_tt)
-    people = list(set(zip(px,py)))
-    draw.point(people, fill=(255,0,0,transparent(level)))
+    px = (scale*(df['x']/A - tile_ll)).astype(int)
+    py = (-scale*(df['y']/A - tile_tt)).astype(int)
+    draw.point(zip(px,py), fill=(255,0,0,transparent(level)))
     
     img = img.resize((512,512),resample=Image.BICUBIC)
     filename = r"tile4/{}/{}/{}.png".format(level, google_tile[0], google_tile[1])
