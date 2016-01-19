@@ -26,16 +26,18 @@ def transparent(level):
         return 0.0 
       
 
-def generate_tile(quadkey, df):   
+def generate_tile(df, quadkey):   
     width = int(512*4)
     bkgrd = 255
     img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,255) )
     draw = ImageDraw.Draw(img)  
 
+    proj = gmt.GlobalMercator()    
     google_tile = proj.QuadKeyToGoogleTile(quadkey)
     tms_tile = proj.GoogleToTMSTile(google_tile[0],google_tile[1],level)
     bounds = proj.TileBounds(tms_tile[0],tms_tile[1],level)
 
+    A = 1000
     tile_ll = bounds[0]/A
     tile_bb = bounds[1]/A
     tile_rr = bounds[2]/A
@@ -60,21 +62,20 @@ def generate_tile(quadkey, df):
 
 #%%
 t0 = time.time()
-proj = gmt.GlobalMercator()    
-A = 1000
-n = 0
 zoomlevel = range(4,14)
-
+N = 0
+orig_data = pd.read_csv('Vermont_pop.csv', header=0, usecols=[1,2,3])
 for level in zoomlevel:
-    data = pd.read_csv('Vermont_pop.csv', header=0, usecols=[1,2,3])
+    t2 = time.time()
+    n = 0
+    data = orig_data.copy(deep=True)
     data.loc[:,'quadkey'] = data['quadkey'].map(lambda x: x[0:level])
     for quadkey, df in data.groupby('quadkey'):
-        generate_tile(quadkey, df)
-        n+=1
-        if n%500 == 0:
-            print(n)
+        generate_tile(df[['x','y']], quadkey)
+        n += 1
+    N += n
+    t1 = time.time()
+    print("Level {} has {} png files for {:.2f}s".format(level,n,t1-t2))
 
-t1 = time.time()
-print("{} png files took {:.1f}s".format(n,t1-t0))
-
-
+print("{} png files took {:.1f}s".format(N,t1-t0))
+print("{:.1f} png tiles per second".format(N/(t1-t0)))
