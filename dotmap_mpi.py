@@ -10,7 +10,7 @@ import os
 import globalmaptiles as gmt
 import time
 import pandas as pd
-
+from mpi4py import MPI
 
 def transparent(level):
     if level == 4 or level == 5:
@@ -32,7 +32,7 @@ def generate_tile(df, quadkey, level):
     bkgrd = 255
     img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,255) )
     draw = ImageDraw.Draw(img)  
-    
+
     proj = gmt.GlobalMercator()    
     google_tile = proj.QuadKeyToGoogleTile(quadkey)
     tms_tile = proj.GoogleToTMSTile(google_tile[0],google_tile[1],level)
@@ -62,21 +62,33 @@ def generate_tile(df, quadkey, level):
    
 
 #%%
-t0 = time.time()
-zoomlevel = range(4,14)
-N = 0
-orig_data = pd.read_csv('Vermont_pop.csv', header=0, usecols=[1,2,3])
-for level in zoomlevel:
-    t2 = time.time()
-    n = 0
-    data = orig_data.copy(deep=True)
-    data.loc[:,'quadkey'] = data['quadkey'].map(lambda x: x[0:level])
-    for quadkey, df in data.groupby('quadkey'):
-        generate_tile(df[['x','y']], quadkey, level)
-        n += 1
-    N += n
-    t1 = time.time()
-    print("Level {} has {} png files for {:.2f}s".format(level,n,t1-t2))
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+rank = comm.Get_rank()
 
-print("{} png files took {:.1f}s".format(N,t1-t0))
-print("{:.1f} png tiles per second".format(N/(t1-t0)))
+zoomlevel = range(13,3,-1)
+masterlist = []
+data = pd.read_csv('Vermont_pop.csv', header=0, usecols=[1,2,3])
+quadtree = data['quadkey']
+for level in zoomlevel:
+    quadtree = quadtree.map(lambda x: x[0:level])
+    keys = list(set(quadtree))
+    for quadkey in keys:
+        masterlist.append((level,quadkey))
+
+n = 0
+t0 = time.time()
+quadtree = data['quadkey']
+grouped = data.groupby('quadkey')
+for i in range(rank,len(masterlist),size):
+    level = masterlist[i][0]
+    quadkey = masterlist[i][1]
+    quadtree = quadtree.map(lambda x: x[0:level])
+    generate_tile(grouped.get_group(quadkey), quadkey, level)
+    n += 1    
+    if n%100:
+        print("Rank {} tiles {}".format(comm.Get_rank(),n))
+
+t1 = time.time()
+print("{} png files took {:.1f}s".format(n,t1-t0))
+print("{:.1f} png tiles per second".format(n/(t1-t0)))
