@@ -4,86 +4,120 @@ Created on Thu Dec 10 16:22:34 2015
 
 @author: Alex Cao, University of Michigan
 """
-
-from PIL import Image, ImageDraw
-import os
-import globalmaptiles as gmt
-import time
 import pandas as pd
+import time
+import createtile as tile
+from osgeo import ogr
+from shapely.wkb import loads
+from shapely.geometry import Point
+from random import uniform
+from globalmaptiles import GlobalMercator
 import multiprocessing as mp
 
-
-def transparent(level):
-    if level == 4 or level == 5:
-        return 153
-    elif level == 6 or level == 7:
-        return 179
-    elif level == 8 or level == 9:
-        return 204
-    elif level == 10 or level == 11:
-        return 230
-    elif level == 12 or level == 13:
-        return 255
-    else:
-        return 0.0 
-      
-
-def generate_tile(df, quadkey, level):   
-    width = int(512*4)
-    bkgrd = 255
-    img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,255) )
-    draw = ImageDraw.Draw(img)  
-    
-    proj = gmt.GlobalMercator()    
-    google_tile = proj.QuadKeyToGoogleTile(quadkey)
-    tms_tile = proj.GoogleToTMSTile(google_tile[0],google_tile[1],level)
-    bounds = proj.TileBounds(tms_tile[0],tms_tile[1],level)
-
-    A = 1000
-    tile_ll = bounds[0]/A
-    tile_bb = bounds[1]/A
-    tile_rr = bounds[2]/A
-    tile_tt = bounds[3]/A
-    
-    xscale = width/(tile_rr - tile_ll)
-    yscale = width/(tile_tt - tile_bb)
-    scale = min(xscale, yscale)
-     
-    px = (scale*(df['x']/A - tile_ll)).astype(int)
-    py = (-scale*(df['y']/A - tile_tt)).astype(int)
-    draw.point(zip(px,py), fill=(255,0,0,transparent(level)))
-    
-    img = img.resize((512,512),resample=Image.BICUBIC)
-    filename = r"tile4/{}/{}/{}.png".format(level, google_tile[0], google_tile[1])
-    try:
-        img.save(filename,'PNG')
-    except:                    
-        os.makedirs(r"tile4/{}/{}".format(level, google_tile[0]))
-        img.save(filename,'PNG')
-   
-
-#%%
+#%% Phase 1: Generate People
 if __name__ == '__main__':
+
+    # timing
+    t0 = time.time()
+    merc = GlobalMercator()
+
+    # specify zoom level limits
+    lowerzoom = 3
+    upperzoom = 13
+    
+    # specify shapefile
+    state_fips = 50
+    shapefile = r"Vermont\tabblock2010_{}_pophu.shp".format(state_fips)
+               
+    # open the shapefile
+    ds = ogr.Open(shapefile)
+    
+    # obtain the first (and only) layer in the shapefile
+    lyr = ds.GetLayerByIndex(0)
+    lyr.ResetReading()
+    print("{} census blocks".format(len(lyr)) )
+    
+    # iterate through every feature (Census Block Polygon) in the layer,
+    # obtain the population count, and create a point for each person within
+    # that feature and append/extend to a list
+    t1 = time.time()
+    population = []
+    for j, feat in enumerate(lyr, start=1):   
+        # print a progress read-out for every 10000 features  
+        if j % 11000 == 0:
+            t2 = time.time()
+            print("{:.1f} | {:.0f}% complete".format(t2-t1,float(j)/len(lyr)*100))        
+        # obtain the OGR polygon object from the feature
+        geom = feat.GetGeometryRef()    
+        if geom is None:
+            continue   
+        # convert the OGR Polygon into a Shapely Polygon    
+        poly = loads(geom.ExportToWkb())    
+        if poly is None:
+            continue                
+        # obtain the "boundary box" of extreme points of the polygon
+        bbox = poly.bounds    
+        if not bbox:
+            continue    
+        # get bounding box for polygon
+        leftmost,bottommost,rightmost,topmost = bbox
+        # obtain population in each census block
+        pop = feat.GetFieldAsInteger("POP10")
+        people = []
+        for i in range(pop):
+            # choose a random longitude and latitude within the boundary box
+            # and within the polygon of the census block            
+            while True:                
+                samplepoint = Point(uniform(leftmost, rightmost),uniform(bottommost, topmost))                
+                if samplepoint is None:
+                    break            
+                if poly.contains(samplepoint):
+                    break
+            # convert the longitude and latitude coordinates to meters and
+            # a tile reference
+            x, y = merc.LatLonToMeters(samplepoint.y, samplepoint.x)
+            tx,ty = merc.MetersToTile(x, y, upperzoom)            
+            # create a quadkey for each point object
+            quadkey = merc.QuadTree(tx, ty, upperzoom)
+            people.append((x,y,quadkey))
+        population.extend(people)
+    
+    t2 = time.time()
+    print("{} people took {:.1f}s".format(len(population),t2-t1))
+
+#%% Phase 2: Generate Tile
     cpus = mp.cpu_count()
     pool = mp.Pool(processes=cpus)
-    t0 = time.time()
-    zoomlevel = range(4,14)
+
+    # convert list to dataframe
+    data = pd.DataFrame(population, columns=['x','y','quadkey'])
+    # create a range of descending zoomlevels 
+    zoomlevels = range(upperzoom,lowerzoom,-1)
+    # track number of tiles
     N = 0
-    orig_data = pd.read_csv('Vermont_pop.csv', header=0, usecols=[1,2,3])
-    for level in zoomlevel:
-        t2 = time.time()
-        data = orig_data.copy(deep=True)
+    # loop through zoom levels
+    for j in range(len(zoomlevels)):
+        level = zoomlevels[j]
+        # grab correct quadkey string based on zoom level
         data.loc[:,'quadkey'] = data['quadkey'].map(lambda x: x[0:level])
+        # group dataframe by quadkey
+        groups =  data.groupby('quadkey')
+        # get list of unique quadkeys and length
         quadtree = data['quadkey'].unique()
-        grouped = data.groupby('quadkey')
-        results = [pool.apply_async(generate_tile, args=(grouped.get_group(quadkey),quadkey,level)) for quadkey in quadtree]        
-        N += len(quadtree)
-    
-    # prevents more task from being submitted
+        n = len(quadtree)
+        # loop through quadkeys
+        for i in range(n):
+            quadkey = quadtree[i]
+            # generate tile function
+            pool.apply_async(tile.generate_tile, args=(groups.get_group(quadkey),quadkey,level) )
+        # keep count of tiles
+        N += n
+
+    # prevents more tasks from being submitted
     pool.close() 
     # Wait for the worker processes to exit
     pool.join()    
     
-    t1 = time.time()
-    print("{} png files took {:.1f}s".format(N,t1-t0))
-    print("{:.1f} png tiles per second".format(N/(t1-t0)))
+    t3 = time.time()
+    print("Creating {} png files took {:.1f}s".format(N,t3-t2))
+    print("Total time from shapefile to tile creation {:.1f}".format(t3-t0))
