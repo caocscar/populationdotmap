@@ -27,7 +27,7 @@ def transparent(level):
 # create png file given quadkey
 def generate_tile(df, quadkey, level):
     tile_size = 512   
-    width = int(tile_size*4)
+    width = int(tile_size*3)
     bkgrd = 255
     img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,0) )
     draw = ImageDraw.Draw(img)  
@@ -49,14 +49,14 @@ def generate_tile(df, quadkey, level):
      
     px = (scale*(df['x']/A - tile_ll)).astype(int)
     py = (-scale*(df['y']/A - tile_tt)).astype(int)
-    draw.point(zip(px,py), fill=(255,0,0,transparent(level)))
+    draw.point(zip(px,py), fill=(128,0,128,transparent(level)))
     
     img = img.resize((tile_size,tile_size),resample=Image.BICUBIC)
-    filename = r"0/{}/{}/{}.png".format(level, google_tile[0], google_tile[1])
+    filename = r"0/{}/{}/{}.png".format(level, tms_tile[0], tms_tile[1])
     try:
         img.save(filename,'PNG')
     except:                    
-        os.makedirs(r"0/{}/{}".format(level, google_tile[0]))
+        os.makedirs(r"0/{}/{}".format(level, tms_tile[0]))
         img.save(filename,'PNG')
         
         
