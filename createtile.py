@@ -29,7 +29,7 @@ def generate_tile(df, quadkey, level):
     tile_size = 512   
     width = int(tile_size*4)
     bkgrd = 255
-    img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,255) )
+    img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,0) )
     draw = ImageDraw.Draw(img)  
 
     proj = gmt.GlobalMercator()
