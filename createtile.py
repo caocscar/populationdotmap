@@ -52,11 +52,11 @@ def generate_tile(df, quadkey, level):
     draw.point(zip(px,py), fill=(255,0,0,transparent(level)))
     
     img = img.resize((tile_size,tile_size),resample=Image.BICUBIC)
-    filename = r"tile4/{}/{}/{}.png".format(level, google_tile[0], google_tile[1])
+    filename = r"0/{}/{}/{}.png".format(level, google_tile[0], google_tile[1])
     try:
         img.save(filename,'PNG')
     except:                    
-        os.makedirs(r"tile4/{}/{}".format(level, google_tile[0]))
+        os.makedirs(r"0/{}/{}".format(level, google_tile[0]))
         img.save(filename,'PNG')
         
         
