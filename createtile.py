@@ -22,11 +22,11 @@ def transparent(level):
     elif level == 12 or level == 13:
         return 255
     else:
-        return 0.0     
+        return 0.0
 
 # create png file given quadkey
 def generate_tile(df, quadkey, level):
-    tile_size = 256   
+    tile_size = 512   
     width = int(tile_size*4)
     bkgrd = 255
     img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,255) )

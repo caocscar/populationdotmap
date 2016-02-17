@@ -64,6 +64,7 @@ Class is available under the open-source GDAL license (www.gdal.org).
 """
 
 import math
+import pandas as pd
 
 class GlobalMercator(object):
     
@@ -174,11 +175,17 @@ class GlobalMercator(object):
 
     def LatLonToMeters(self, lat, lon ):
         "Converts given lat/lon in WGS84 Datum to XY in Spherical Mercator EPSG:900913"
-    
+
+#        df = pd.DataFrame(zip(lat,lon), columns = ['lat','lon'])
+#        mx = df['lon'] * self.originShift / 180
+#        my = df['lat'].apply(lambda x: math.log( math.tan((90+x) * math.pi / 360.0 )) * 6378137)
+        
         mx = lon * self.originShift / 180.0
         my = math.log( math.tan((90 + lat) * math.pi / 360.0 )) / (math.pi / 180.0)
         my = my * self.originShift / 180.0
-        return mx, my
+        # Simplified formula
+        # my = math.log( math.tan((90 + lat) * math.pi / 360.0 )) * 6378137
+        return (mx, my)
 
     def MetersToLatLon(self, mx, my ):
         "Converts XY point from Spherical Mercator EPSG:900913 to lat/lon in WGS84 Datum"
@@ -208,6 +215,9 @@ class GlobalMercator(object):
     def PixelsToTile(self, px, py):
         "Returns a tile covering region in given pixel coordinates"
         
+#        tx = px.apply(lambda x: int( math.ceil( x / float(self.tileSize) ) - 1 ))
+#        ty = py.apply(lambda y: int( math.ceil( y / float(self.tileSize) ) - 1 ))
+        
         tx = int( math.ceil( px / float(self.tileSize) ) - 1 )
         ty = int( math.ceil( py / float(self.tileSize) ) - 1 )
         return tx, ty
@@ -220,7 +230,7 @@ class GlobalMercator(object):
 		
     def MetersToTile(self, mx, my, zoom):
         "Returns tile for given mercator coordinates"
-        		
+
         px, py = self.MetersToPixels( mx, my, zoom)
         return self.PixelsToTile( px, py)
 
@@ -284,6 +294,7 @@ class GlobalMercator(object):
                 gtileX |= mask
                 gtileY |= mask
         return (gtileX, gtileY, levelOfDetail)
+
             
     def QuadTree(self, tx, ty, zoom ):
         "Converts TMS tile coordinates to Microsoft QuadTree"

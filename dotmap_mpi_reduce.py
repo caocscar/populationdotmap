@@ -23,6 +23,7 @@ lowerzoom = 3
 upperzoom = 13
 
 #%% Phase 2: Generate Tile
+
 # convert list to dataframe
 data = pd.read_csv("Vermont_pop.csv", header=0, usecols=[1,2,3])
 t2 = time.time()

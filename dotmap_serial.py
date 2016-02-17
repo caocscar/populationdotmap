@@ -16,75 +16,81 @@ from globalmaptiles import GlobalMercator
 #%% Phase 1: Generate People
 # timing
 t0 = time.time()
-merc = GlobalMercator()
 
 # specify zoom level limits
 lowerzoom = 3
 upperzoom = 13
 
-# specify shapefile
-state_fips = 50
-shapefile = r"Vermont\tabblock2010_{}_pophu.shp".format(state_fips)
-           
-# open the shapefile
-ds = ogr.Open(shapefile)
+shortcut = False
 
-# obtain the first (and only) layer in the shapefile
-lyr = ds.GetLayerByIndex(0)
-lyr.ResetReading()
-print("{} census blocks".format(len(lyr)) )
+if not shortcut:
+    merc = GlobalMercator()
 
-# iterate through every feature (Census Block Polygon) in the layer,
-# obtain the population count, and create a point for each person within
-# that feature and append/extend to a list
-t1 = time.time()
-population = []
-for j, feat in enumerate(lyr, start=1):   
-    # print a progress read-out for every 10000 features  
-    if j % 11000 == 0:
-        t2 = time.time()
-        print("{:.1f} | {:.0f}% complete".format(t2-t1,float(j)/len(lyr)*100))        
-    # obtain the OGR polygon object from the feature
-    geom = feat.GetGeometryRef()    
-    if geom is None:
-        continue   
-    # convert the OGR Polygon into a Shapely Polygon    
-    poly = loads(geom.ExportToWkb())    
-    if poly is None:
-        continue                
-    # obtain the "boundary box" of extreme points of the polygon
-    bbox = poly.bounds    
-    if not bbox:
-        continue    
-    # get bounding box for polygon
-    leftmost,bottommost,rightmost,topmost = bbox           
-    # obtain population in each census block
-    pop = feat.GetFieldAsInteger("POP10")
-    people = []
-    for i in range(pop):
-        # choose a random longitude and latitude within the boundary box
-        # and within the polygon of the census block            
-        while True:                
-            samplepoint = Point(uniform(leftmost, rightmost),uniform(bottommost, topmost))                
-            if samplepoint is None:
-                break            
-            if poly.contains(samplepoint):
-                break
-        # convert the longitude and latitude coordinates to meters and
-        # a tile reference
-        x, y = merc.LatLonToMeters(samplepoint.y, samplepoint.x)
-        tx,ty = merc.MetersToTile(x, y, upperzoom)            
-        # create a quadkey for each point object
-        quadkey = merc.QuadTree(tx, ty, upperzoom)
-        people.append((x,y,quadkey))
-    population.extend(people)
+    # specify shapefile
+    state_fips = 50
+    shapefile = r"Vermont\tabblock2010_{}_pophu.shp".format(state_fips)
+               
+    # open the shapefile
+    ds = ogr.Open(shapefile)
+    
+    # obtain the first (and only) layer in the shapefile
+    lyr = ds.GetLayerByIndex(0)
+    lyr.ResetReading()
+    print("{} census blocks".format(len(lyr)) )
+    
+    # iterate through every feature (Census Block Polygon) in the layer,
+    # obtain the population count, and create a point for each person within
+    # that feature and append/extend to a list
+    population = []
+    for j, feat in enumerate(lyr, start=1):   
+        # print a progress read-out for every 11000 features  
+    #    if j % 11000 == 0:
+    #        t2 = time.time()
+    #        print("{:.1f} | {:.0f}% complete".format(t2-t0,float(j)/len(lyr)*100))        
+        # obtain the OGR polygon object from the feature
+        geom = feat.GetGeometryRef()    
+        if geom is None:
+            continue   
+        # convert the OGR Polygon into a Shapely Polygon    
+        poly = loads(geom.ExportToWkb())    
+        if poly is None:
+            continue                
+        # obtain the "boundary box" of extreme points of the polygon
+        bbox = poly.bounds    
+        if not bbox:
+            continue    
+        # get bounding box for polygon
+        leftmost,bottommost,rightmost,topmost = bbox           
+        # obtain population in each census block
+        pop = feat.GetFieldAsInteger("POP10")
+        people = []
+        for i in range(pop):
+            # choose a random longitude and latitude within the boundary box
+            # and within the polygon of the census block            
+            while True:                
+                samplepoint = Point(uniform(leftmost, rightmost),uniform(bottommost, topmost))                      
+                if poly.contains(samplepoint):
+                    break
+            # convert the longitude and latitude coordinates to meters and
+            # a tile reference
+            x, y = merc.LatLonToMeters(samplepoint.y, samplepoint.x)
+            tx,ty = merc.MetersToTile(x, y, upperzoom)            
+            # create a quadkey for each point object
+            quadkey = merc.QuadTree(tx, ty, upperzoom)
+            people.append((x,y,quadkey))
+        population.extend(people)
+    
+    # convert list to dataframe
+    data = pd.DataFrame(population, columns=['x','y','quadkey'])
+    
+else:
+    data = pd.read_csv("Vermont_pop.csv", header=0, usecols=[1,2,3])
 
 t2 = time.time()
-print("{} people took {:.1f}s".format(len(population),t2-t1))
+print("{} people took {:.1f}s".format(data.shape[0],t2-t0))
 
 #%% Phase 2: Generate Tile
-# convert list to dataframe
-data = pd.DataFrame(population, columns=['x','y','quadkey'])
+
 # create a range of descending zoomlevels 
 zoomlevels = range(upperzoom,lowerzoom,-1)
 # track number of tiles
