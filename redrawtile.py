@@ -25,7 +25,7 @@ def transparent(level):
         return 0.0
 
 # create png file given quadkey
-def generate_tile(df, quadkey, level, append=False):
+def generate_tile(df, quadkey, level):
 
     proj = gmt.GlobalMercator()
     google_tile = proj.QuadKeyToGoogleTile(quadkey)
@@ -34,16 +34,13 @@ def generate_tile(df, quadkey, level, append=False):
 
     tile_size = 512
     width = int(tile_size*3)
-    bkgrd = 255
     filename = os.path.join("tiles",str(level),str(tms_tile[0]),"{}.png".format(tms_tile[1]))
-    if append:
-        try:
-            img = Image.open(filename)
-            img = img.resize((width,width),resample=Image.LANCZOS)        
-        except IOError:
-            img = Image.new('RGBA',(width,width),(bkgrd,bkgrd,bkgrd,0))
-    else:
-        img = Image.new('RGBA',(width,width),(bkgrd,bkgrd,bkgrd,0))        
+    try:
+        img = Image.open(filename)
+        img = img.resize((width,width),resample=Image.LANCZOS)        
+    except IOError:
+        bkgrd = 255
+        img = Image.new('RGBA',(width,width),(bkgrd,bkgrd,bkgrd,0))
     draw = ImageDraw.Draw(img)
 
     A = 1000
@@ -66,4 +63,5 @@ def generate_tile(df, quadkey, level, append=False):
     except:
         os.makedirs(os.path.join('tiles',str(level),str(tms_tile[0])) )
         img.save(filename,'PNG')
-                
+        
+        
