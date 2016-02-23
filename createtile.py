@@ -26,16 +26,22 @@ def transparent(level):
 
 # create png file given quadkey
 def generate_tile(df, quadkey, level):
-    tile_size = 512   
-    width = int(tile_size*3)
-    bkgrd = 255
-    img = Image.new('RGBA', (width,width), (bkgrd,bkgrd,bkgrd,0) )
-    draw = ImageDraw.Draw(img)  
 
     proj = gmt.GlobalMercator()
     google_tile = proj.QuadKeyToGoogleTile(quadkey)
     tms_tile = proj.GoogleToTMSTile(google_tile[0],google_tile[1],level)
     bounds = proj.TileBounds(tms_tile[0],tms_tile[1],level)
+
+    tile_size = 512
+    width = int(tile_size*4)
+    filename = os.path.join("tiles",str(level),str(tms_tile[0]),"{}.png".format(tms_tile[1]))
+    try:
+        img = Image.open(filename)
+        img = img.resize((width,width),resample=Image.LANCZOS)        
+    except IOError:
+        bkgrd = 255
+        img = Image.new('RGBA',(width,width),(bkgrd,bkgrd,bkgrd,0))
+    draw = ImageDraw.Draw(img)
 
     A = 1000
     tile_ll = bounds[0]/A
@@ -49,14 +55,13 @@ def generate_tile(df, quadkey, level):
      
     px = (scale*(df['x']/A - tile_ll)).astype(int)
     py = (-scale*(df['y']/A - tile_tt)).astype(int)
-    draw.point(zip(px,py), fill=(128,0,128,transparent(level)))
+    draw.point(zip(px,py), fill=(128,50,128,transparent(level)))
     
     img = img.resize((tile_size,tile_size),resample=Image.BICUBIC)
-    filename = r"0/{}/{}/{}.png".format(level, tms_tile[0], tms_tile[1])
     try:
         img.save(filename,'PNG')
     except:                    
-        os.makedirs(r"0/{}/{}".format(level, tms_tile[0]))
+        os.makedirs(r"tiles/{}/{}".format(level, tms_tile[0]))
         img.save(filename,'PNG')
         
         

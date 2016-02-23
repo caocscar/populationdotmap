@@ -13,6 +13,7 @@ from shapely.geometry import Point
 from random import uniform
 from globalmaptiles import GlobalMercator
 import multiprocessing as mp
+import os
 
 #%% Phase 1: Generate People
 if __name__ == '__main__':
@@ -22,16 +23,16 @@ if __name__ == '__main__':
 
     # specify zoom level limits
     lowerzoom = 3
-    upperzoom = 13
+    upperzoom = 7
     
-    shortcut = False
+    shortcut = True
     
     if not shortcut:
         merc = GlobalMercator()
         
         # specify shapefile
         state_fips = 50
-        shapefile = r"Vermont\tabblock2010_{}_pophu.shp".format(state_fips)
+        shapefile = os.path.join("Vermont","tabblock2010_{}_pophu.shp".format(state_fips))
                    
         # open the shapefile
         ds = ogr.Open(shapefile)
@@ -87,7 +88,7 @@ if __name__ == '__main__':
         data = pd.DataFrame(population, columns=['x','y','quadkey'])
         
     else:
-        data = pd.read_csv("Vermont_pop.csv", header=0, usecols=[1,2,3])
+        data = pd.read_csv("mi_pop.csv", header=0, usecols=[1,2,3])
     
     t2 = time.time()
     print("{} people took {:.1f}s".format(data.shape[0],t2-t0))
@@ -125,4 +126,4 @@ if __name__ == '__main__':
     
     t3 = time.time()
     print("Creating {} png files took {:.1f}s".format(N,t3-t2))
-    print("Total time from shapefile to tile creation {:.1f}".format(t3-t0))
+    print("Total time {:.1f}".format(t3-t0))

@@ -12,6 +12,8 @@ from shapely.wkb import loads
 from shapely.geometry import Point
 from random import uniform
 from globalmaptiles import GlobalMercator
+import os
+
 
 #%% Phase 1: Generate People
 # timing
@@ -28,7 +30,7 @@ if not shortcut:
 
     # specify shapefile
     state_fips = 50
-    shapefile = r"Vermont\tabblock2010_{}_pophu.shp".format(state_fips)
+    shapefile = os.path.join("Vermont","tabblock2010_{}_pophu.shp".format(state_fips))
                
     # open the shapefile
     ds = ogr.Open(shapefile)
@@ -115,4 +117,4 @@ for j in range(len(zoomlevels)):
 
 t3 = time.time()
 print("Creating {} png files took {:.1f}s".format(N,t3-t2))
-print("Total time from shapefile to tile creation {:.1f}".format(t3-t0))
+print("Total time {:.1f}".format(t3-t0))
