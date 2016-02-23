@@ -33,7 +33,7 @@ def generate_tile(df, quadkey, level):
     bounds = proj.TileBounds(tms_tile[0],tms_tile[1],level)
 
     tile_size = 512
-    width = int(tile_size*4)
+    width = int(tile_size*3)
     filename = os.path.join("tiles",str(level),str(tms_tile[0]),"{}.png".format(tms_tile[1]))
     try:
         img = Image.open(filename)
@@ -60,8 +60,8 @@ def generate_tile(df, quadkey, level):
     img = img.resize((tile_size,tile_size),resample=Image.BICUBIC)
     try:
         img.save(filename,'PNG')
-    except:                    
-        os.makedirs(r"tiles/{}/{}".format(level, tms_tile[0]))
+    except:
+        os.makedirs(os.path.join('tiles',str(level),str(tms_tile[0])) )
         img.save(filename,'PNG')
         
         

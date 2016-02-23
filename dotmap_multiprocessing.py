@@ -88,7 +88,7 @@ if __name__ == '__main__':
         data = pd.DataFrame(population, columns=['x','y','quadkey'])
         
     else:
-        data = pd.read_csv("mi_pop.csv", header=0, usecols=[1,2,3])
+        data = pd.read_csv("Vermont_pop.csv", header=0, usecols=[1,2,3])
     
     t2 = time.time()
     print("{} people took {:.1f}s".format(data.shape[0],t2-t0))
